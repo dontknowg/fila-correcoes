@@ -12,6 +12,37 @@ st.markdown(
     #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; }
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
+
+    /* iOS: fonte >= 16px evita o zoom automático ao focar campos */
+    .stTextInput input,
+    div[data-baseweb="select"] input {
+        font-size: 16px !important;
+    }
+
+    /* No celular, o Streamlit já empilha as colunas em largura total (bom
+       para os botões de ação, com alvos de toque grandes). Aqui deixamos
+       apenas os 4 indicadores em 2x2, para um painel compacto de dashboard. */
+    @media (max-width: 640px) {
+        [data-testid="stColumn"]:has([data-testid="stMetric"]) {
+            flex: 1 1 46% !important;
+            min-width: 46% !important;
+        }
+    }
+
+    /* Tela de login centralizada (funciona em notebook e celular) */
+    .login-wrap {
+        max-width: 420px;
+        margin: 8vh auto 0.5rem auto;
+    }
+    .login-wrap h1 { font-size: 2rem; margin-bottom: 0.2rem; }
+    .login-wrap p { color: #9a9a9a; margin-bottom: 0; }
+    /* O único formulário do painel é o de login: limita a largura e centraliza.
+       No celular (viewport < 420px) ele ocupa a largura toda automaticamente. */
+    [data-testid="stForm"] {
+        max-width: 420px;
+        margin: 0 auto;
+        border: none;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -28,20 +59,40 @@ def init_connection() -> Client:
 supabase = init_connection()
 
 
+COLUNAS = ["id", "data_hora", "nome", "contato", "turma", "tema", "status"]
+
+
+def _executar(query, tentativas: int = 2):
+    """Executa uma query do Supabase com nova tentativa em falhas transitórias
+    de rede (timeouts/conexão), comuns em conexões móveis."""
+    ultimo_erro = None
+    for _ in range(tentativas):
+        try:
+            return query.execute()
+        except Exception as e:  # noqa: BLE001
+            ultimo_erro = e
+    raise ultimo_erro
+
+
 def carregar_dados(filtro_status=None) -> pd.DataFrame:
     query = supabase.table(TABELA).select("*")
     if filtro_status:
         query = query.eq("status", filtro_status).order("data_hora", desc=False)
     else:
         query = query.order("data_hora", desc=True)
-    response = query.execute()
+    response = _executar(query)
     if response.data:
         return pd.DataFrame(response.data)
-    return pd.DataFrame(columns=["id", "data_hora", "nome", "contato", "turma", "tema", "status"])
+    return pd.DataFrame(columns=COLUNAS)
 
 
-def atualizar_status(id_aluno: str, novo_status: str):
-    supabase.table(TABELA).update({"status": novo_status}).eq("id", id_aluno).execute()
+def atualizar_status(id_aluno: str, novo_status: str) -> bool:
+    try:
+        _executar(supabase.table(TABELA).update({"status": novo_status}).eq("id", id_aluno))
+        return True
+    except Exception:
+        st.toast("Falha ao atualizar. Tente novamente.", icon="⚠️")
+        return False
 
 
 def contar_por_status(dados: pd.DataFrame, status: str) -> int:
@@ -59,18 +110,23 @@ def gerar_link_whatsapp(contato: str, nome: str) -> str:
 # ---------- AUTENTICAÇÃO ----------
 
 if not st.session_state.get("autenticado"):
-    col_vazia_e, col_login, col_vazia_d = st.columns([1, 2, 1])
-    with col_login:
-        st.title("Acesso Restrito")
-        st.markdown("Insira a senha para acessar o painel de correções.")
-        with st.form("form_login"):
-            senha = st.text_input("Senha", type="password", label_visibility="collapsed", placeholder="Senha de acesso")
-            if st.form_submit_button("Entrar", use_container_width=True):
-                if senha == st.secrets.get("SENHA_CORRETOR", "corretor123"):
-                    st.session_state["autenticado"] = True
-                    st.rerun()
-                else:
-                    st.error("Senha incorreta.")
+    st.markdown(
+        """
+        <div class="login-wrap">
+            <h1>Acesso Restrito</h1>
+            <p>Insira a senha para acessar o painel de correções.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.form("form_login"):
+        senha = st.text_input("Senha", type="password", label_visibility="collapsed", placeholder="Senha de acesso")
+        if st.form_submit_button("Entrar", use_container_width=True):
+            if senha == st.secrets.get("SENHA_CORRETOR", "corretor123"):
+                st.session_state["autenticado"] = True
+                st.rerun()
+            else:
+                st.error("Senha incorreta.")
     st.stop()
 
 
@@ -78,7 +134,11 @@ if not st.session_state.get("autenticado"):
 
 st.title("Painel de Correções")
 
-todos_dados = carregar_dados()
+try:
+    todos_dados = carregar_dados()
+except Exception:
+    st.error("Não foi possível conectar ao banco de dados agora. Verifique a conexão e atualize a página.")
+    st.stop()
 
 hoje = date.today().isoformat()
 dados_hoje = todos_dados[todos_dados["data_hora"].str.startswith(hoje)] if not todos_dados.empty else pd.DataFrame()
@@ -97,7 +157,11 @@ with aba_fila:
 
     @st.fragment(run_every=10)
     def exibir_fila():
-        fila_espera = carregar_dados("Aguardando")
+        try:
+            fila_espera = carregar_dados("Aguardando")
+        except Exception:
+            st.info("Reconectando ao banco de dados... a fila será atualizada em instantes.")
+            return
 
         if fila_espera.empty:
             st.info("Nenhum aluno aguardando no momento.")
@@ -132,27 +196,29 @@ with aba_fila:
             )
         with col_concluir:
             if st.button("Concluir Atendimento", use_container_width=True):
-                atualizar_status(proximo["id"], "Concluído")
-                st.rerun()
+                if atualizar_status(proximo["id"], "Concluído"):
+                    st.rerun()
         with col_ausente:
             if st.button("Marcar Ausente", use_container_width=True):
-                atualizar_status(proximo["id"], "Ausente")
-                st.rerun()
+                if atualizar_status(proximo["id"], "Ausente"):
+                    st.rerun()
 
     exibir_fila()
 
     st.divider()
     st.subheader("Ações Recentes")
 
-    recentes_query = (
-        supabase.table(TABELA)
-        .select("*")
-        .in_("status", ["Concluído", "Ausente"])
-        .order("data_hora", desc=True)
-        .limit(5)
-        .execute()
-    )
-    recentes = pd.DataFrame(recentes_query.data) if recentes_query.data else pd.DataFrame()
+    try:
+        recentes_query = _executar(
+            supabase.table(TABELA)
+            .select("*")
+            .in_("status", ["Concluído", "Ausente"])
+            .order("data_hora", desc=True)
+            .limit(5)
+        )
+        recentes = pd.DataFrame(recentes_query.data) if recentes_query.data else pd.DataFrame()
+    except Exception:
+        recentes = pd.DataFrame()
 
     if recentes.empty:
         st.caption("Nenhuma ação registrada ainda.")
@@ -164,8 +230,8 @@ with aba_fila:
                 st.markdown(f"**{row['nome']}** — {rotulo}")
             with col_acao:
                 if st.button("Desfazer", key=f"desfazer_{row['id']}", use_container_width=True):
-                    atualizar_status(row["id"], "Aguardando")
-                    st.rerun()
+                    if atualizar_status(row["id"], "Aguardando"):
+                        st.rerun()
 
 
 with aba_dados:

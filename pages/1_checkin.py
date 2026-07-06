@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import streamlit.components.v1 as components
 from supabase import create_client, Client
 from alunos import BASE_ALUNOS
 from temas import TEMAS_POR_LIVRO
@@ -8,6 +7,10 @@ from temas import TEMAS_POR_LIVRO
 st.set_page_config(page_title="Check-in | Projeto de Correções", layout="centered")
 
 TABELA = "fila"
+LOGO_URL = st.secrets.get(
+    "LOGO_URL",
+    "https://gfaffmlrhubbwcyxaewl.supabase.co/storage/v1/object/public/assets/logo_400px.png",
+)
 
 st.markdown(
     """
@@ -23,11 +26,12 @@ st.markdown(
         --bt-border:  rgba(255,255,255,0.08);
         --bt-text:    #ffffff;
         --bt-muted:   #a9a9a9;
-        --bt-accent:  #b026ff;
+        --bt-accent:  #b026ff;   /* magenta/roxo da marca */
         --bt-accent2: #e0219a;
-        --bt-green:   #25d366;
+        --bt-green:   #25d366;   /* WhatsApp */
     }
 
+    /* ---- Fundo geral ---- */
     .stApp {
         background: var(--bt-bg);
         color: var(--bt-text);
@@ -39,6 +43,7 @@ st.markdown(
         max-width: 640px;
     }
 
+    /* ---- Tipografia pesada arredondada ---- */
     h1, h2, h3 {
         font-family: 'Baloo 2', cursive !important;
         font-weight: 800 !important;
@@ -49,6 +54,7 @@ st.markdown(
 
     p, label, .stMarkdown { color: var(--bt-text); }
 
+    /* ---- Labels dos campos ---- */
     label, .stTextInput label, .stSelectbox label {
         font-family: 'Baloo 2', cursive !important;
         font-weight: 600 !important;
@@ -56,6 +62,9 @@ st.markdown(
         font-size: 0.95rem !important;
     }
 
+    /* ---- Inputs ---- */
+
+    /* Regra apenas para o campo de texto digitável (WhatsApp) */
     .stTextInput input {
         background: var(--bt-surface) !important;
         color: var(--bt-text) !important;
@@ -66,6 +75,7 @@ st.markdown(
         font-size: 1rem !important;
     }
 
+    /* Regra apenas para as caixas de seleção (Nome, Turma e Tema) */
     .stSelectbox div[data-baseweb="select"] > div {
         background: var(--bt-surface) !important;
         color: var(--bt-text) !important;
@@ -74,6 +84,7 @@ st.markdown(
         box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important;
     }
 
+    /* Efeitos de brilho ao clicar */
     .stTextInput input:focus, .stSelectbox div[data-baseweb="select"] > div:focus-within {
         border-color: var(--bt-accent) !important;
         box-shadow: 0 0 0 3px rgba(176,38,255,0.25) !important;
@@ -81,27 +92,13 @@ st.markdown(
 
     .stTextInput input::placeholder { color: #6b6b6b; }
 
+    /* dropdown popover */
     div[data-baseweb="popover"] div {
         background: var(--bt-surface) !important;
         color: var(--bt-text) !important;
     }
 
-    div[data-baseweb="popover"] li:hover,
-    div[data-baseweb="popover"] li[aria-selected="true"] {
-        background: rgba(176,38,255,0.22) !important;
-    }
-
-    div[data-baseweb="popover"] [role="listbox"],
-    div[data-baseweb="popover"] ul {
-        max-height: 40vh !important;
-        overflow-y: auto !important;
-    }
-
-    .stTextInput input,
-    div[data-baseweb="select"] input {
-        font-size: 16px !important;
-    }
-
+    /* ---- Botões largos, arredondados, com sombra suave ---- */
     .stButton > button,
     .stFormSubmitButton > button {
         width: 100%;
@@ -116,19 +113,14 @@ st.markdown(
         box-shadow: 0 8px 24px rgba(176,38,255,0.35) !important;
         transition: transform .12s ease, box-shadow .12s ease !important;
     }
-    @media (hover: hover) {
-        .stButton > button:hover,
-        .stFormSubmitButton > button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 30px rgba(176,38,255,0.5) !important;
-            color: #ffffff !important;
-        }
-    }
-    .stButton > button:active,
-    .stFormSubmitButton > button:active {
-        transform: scale(0.99);
+    .stButton > button:hover,
+    .stFormSubmitButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px rgba(176,38,255,0.5) !important;
+        color: #ffffff !important;
     }
 
+    /* botão secundário "Novo check-in" — contorno */
     .secondary-btn .stButton > button {
         background: transparent !important;
         border: 1.5px solid var(--bt-border) !important;
@@ -141,6 +133,7 @@ st.markdown(
         box-shadow: 0 6px 18px rgba(176,38,255,0.25) !important;
     }
 
+    /* ---- Cartão / container ---- */
     .bt-card {
         background: var(--bt-surface);
         border: 1px solid var(--bt-border);
@@ -150,6 +143,7 @@ st.markdown(
         margin-bottom: 1.2rem;
     }
 
+    /* ---- Cabeçalho da marca ---- */
     .bt-brand {
         display: flex; align-items: center; gap: 12px;
         margin-bottom: 0.4rem;
@@ -170,6 +164,7 @@ st.markdown(
         margin-top: -4px;
     }
 
+    /* ---- Métrica de posição ---- */
     [data-testid="stMetric"] {
         background: linear-gradient(135deg, rgba(176,38,255,0.18), rgba(224,33,154,0.10));
         border: 1px solid rgba(176,38,255,0.35);
@@ -178,7 +173,9 @@ st.markdown(
         text-align: center;
         box-shadow: 0 14px 40px rgba(176,38,255,0.18);
     }
-    [data-testid="stMetricLabel"] { justify-content: center; }
+    [data-testid="stMetricLabel"] {
+        justify-content: center;
+    }
     [data-testid="stMetricLabel"] p {
         font-family: 'Baloo 2', cursive !important;
         font-weight: 600 !important;
@@ -193,6 +190,7 @@ st.markdown(
         justify-content: center;
     }
 
+    /* ---- Alertas (success/info/error) ---- */
     .stAlert {
         border-radius: 16px !important;
         border: none !important;
@@ -201,57 +199,21 @@ st.markdown(
     }
     div[data-baseweb="notification"] { border-radius: 16px !important; }
 
-    /* ---- Alerta "É A SUA VEZ" (aluno chamado) ---- */
-    .vez-alert {
-        background: linear-gradient(135deg, var(--bt-accent) 0%, var(--bt-accent2) 100%);
-        border-radius: 22px;
-        padding: 2.2rem 1.5rem;
-        text-align: center;
-        box-shadow: 0 16px 45px rgba(176,38,255,0.45);
-        animation: vezpulse 1.4s ease-in-out infinite;
-    }
-    .vez-title {
-        font-family: 'Baloo 2', cursive; font-weight: 800;
-        font-size: 2.3rem; color: #ffffff; line-height: 1.1;
-    }
-    .vez-sub {
-        font-family: 'Nunito', sans-serif; font-size: 1.05rem;
-        color: #ffffff; opacity: 0.95; margin-top: 0.4rem;
-    }
-    @keyframes vezpulse {
-        0%, 100% { transform: scale(1);    box-shadow: 0 16px 45px rgba(176,38,255,0.45); }
-        50%      { transform: scale(1.02); box-shadow: 0 20px 60px rgba(176,38,255,0.75); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-        .vez-alert { animation: none; }
-    }
-
+    /* ---- Divisor ---- */
     hr { border-color: var(--bt-border) !important; }
 
+    /* Esconde o menu/rodapé padrão do Streamlit */
     #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; }
+
+    /* Trava de Segurança: Oculta completamente a barra lateral e o botão de colapso */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
-
-    @media (max-width: 480px) {
-        .block-container {
-            padding-top: 2rem;
-            padding-left: 1.1rem;
-            padding-right: 1.1rem;
-        }
-        h1 { font-size: 2rem !important; }
-        .bt-brandname { font-size: 1.05rem; letter-spacing: 1px; }
-    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # ---------- BLOCO DE MARCA (reutilizável) ----------
-
-LOGO_URL = st.secrets.get(
-    "LOGO_URL",
-    "https://gfaffmlrhubbwcyxaewl.supabase.co/storage/v1/object/public/assets/logo_400px.png",
-)
 
 def cabecalho_marca():
     st.markdown(
@@ -268,7 +230,7 @@ def cabecalho_marca():
 
 
 # ============================================================
-#  MOTOR — LÓGICA DA FILA
+#  MOTOR — LOGICA DA FILA
 # ============================================================
 
 @st.cache_resource
@@ -279,159 +241,33 @@ def init_connection() -> Client:
 supabase = init_connection()
 
 
-def _executar(query, tentativas: int = 2):
-    """Executa uma query do Supabase com nova tentativa em falhas transitórias
-    de rede (timeouts/conexão), comuns em conexões móveis."""
-    ultimo_erro = None
-    for _ in range(tentativas):
-        try:
-            return query.execute()
-        except Exception as e:  # noqa: BLE001
-            ultimo_erro = e
-    raise ultimo_erro
-
-
 def aluno_ja_na_fila(contato: str) -> bool:
-    resultado = _executar(
+    resultado = (
         supabase.table(TABELA)
         .select("id")
         .eq("status", "Aguardando")
         .eq("contato", contato)
+        .execute()
     )
     return len(resultado.data) > 0
 
 
-def buscar_posicao_chamado(id_aluno: str):
-    """Retorna (posicao, chamado, chamado_em). posicao é None se o aluno saiu da
-    fila. chamado_em muda a cada (re)chamada, permitindo re-disparar o alerta."""
-    fila = _executar(
+def buscar_posicao(id_aluno: str) -> int | None:
+    fila = (
         supabase.table(TABELA)
-        .select("id,chamado,chamado_em")
+        .select("id")
         .eq("status", "Aguardando")
         .order("data_hora", desc=False)
+        .execute()
     )
-    for i, r in enumerate(fila.data):
-        if r["id"] == id_aluno:
-            return i + 1, bool(r.get("chamado")), r.get("chamado_em")
-    return None, False, None
-
-
-def buscar_status(id_aluno: str) -> str | None:
-    """Retorna o status atual do aluno no banco (Aguardando/Concluído/Ausente)
-    ou None se o registro não existir mais."""
-    resultado = _executar(
-        supabase.table(TABELA).select("status").eq("id", id_aluno)
-    )
-    if not resultado.data:
-        return None
-    return resultado.data[0]["status"]
-
-
-# ---------- NOTIFICADOR PERSISTENTE (som + vibração + tela acesa) ----------
-# Componente montado UMA vez (fora do fragmento), com seu próprio polling ao
-# Supabase. Assim o "desbloqueio" do áudio (feito pelo toque no botão) vale para
-# o MESMO contexto que depois toca o alerta — corrigindo a falha anterior, em
-# que cada atualização recriava o iframe e perdia a permissão de áudio.
-# Limites honestos: no iPhone o Safari NÃO vibra (a Apple não expõe a API) e o
-# som só toca com a tela/aba aberta; nenhum site toca com o aparelho bloqueado.
-_NOTIFIER_HTML = """
-<div id="wrap" style="font-family: system-ui, -apple-system, sans-serif; text-align:center;">
-  <button id="ativar" style="
-      width:100%; padding:0.8rem 1rem; border:none; border-radius:16px; cursor:pointer;
-      font-size:1rem; font-weight:700; color:#fff;
-      background:linear-gradient(135deg,#b026ff 0%,#e0219a 100%);
-      box-shadow:0 8px 24px rgba(176,38,255,0.35);">
-    Ativar aviso sonoro
-  </button>
-  <div id="ok" style="display:none; color:#9a9a9a; font-size:0.9rem; padding-top:6px;">
-    Aviso sonoro ativado. Mantenha esta tela aberta.
-  </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-(function(){
-  var URL = "%%URL%%", KEY = "%%KEY%%", TICKET = "%%TICKET%%";
-  var client = null;
-  try { client = supabase.createClient(URL, KEY); } catch(e) { return; }
-
-  var ctx = null, unlocked = false, last = null, first = true, wakeLock = null;
-
-  function beep(){
-    if(!ctx) return;
-    try{
-      function tone(f,t0,dur){
-        var o=ctx.createOscillator(), g=ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.type='sine'; o.frequency.value=f;
-        g.gain.setValueAtTime(0.0001, ctx.currentTime+t0);
-        g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime+t0+0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+t0+dur);
-        o.start(ctx.currentTime+t0); o.stop(ctx.currentTime+t0+dur);
-      }
-      tone(880,0,0.18); tone(1175,0.22,0.22);
-    }catch(e){}
-  }
-  function vibrar(){ try{ if(navigator.vibrate) navigator.vibrate([400,150,400,150,400]); }catch(e){} }
-  async function pedirWakeLock(){
-    try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); } }catch(e){}
-  }
-
-  var btn = document.getElementById('ativar');
-  var ok = document.getElementById('ok');
-  btn.addEventListener('click', async function(){
-    try{
-      var AC = window.AudioContext || window.webkitAudioContext;
-      ctx = new AC();
-      if(ctx.state === 'suspended'){ await ctx.resume(); }
-      beep();            // toca um teste no gesto (destrava o áudio)
-      unlocked = true;
-    }catch(e){}
-    await pedirWakeLock();
-    btn.style.display='none';
-    ok.style.display='block';
-  });
-
-  document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState === 'visible' && unlocked){ pedirWakeLock(); }
-  });
-
-  async function checar(){
-    try{
-      var res = await client.from('fila').select('chamado, chamado_em').eq('id', TICKET).maybeSingle();
-      if(res.error || !res.data) return;
-      var ce = res.data.chamado_em;
-      if(first){ last = ce; first = false; return; }   // não alerta ao montar
-      if(res.data.chamado && ce && ce !== last){
-        last = ce;
-        vibrar();
-        if(unlocked){ beep(); }
-      } else if(!res.data.chamado){
-        last = ce;
-      }
-    }catch(e){}
-  }
-  setInterval(checar, 5000);
-  checar();
-})();
-</script>
-"""
-
-def render_notificador(ticket: str):
-    html = (
-        _NOTIFIER_HTML
-        .replace("%%URL%%", st.secrets["supabase"]["url"])
-        .replace("%%KEY%%", st.secrets["supabase"]["key"])
-        .replace("%%TICKET%%", ticket)
-    )
-    components.html(html, height=90)
+    ids = [r["id"] for r in fila.data]
+    if id_aluno in ids:
+        return ids.index(id_aluno) + 1
+    return None
 
 
 # ---------- PREPARAÇÃO DOS TEMAS ----------
 TODOS_TEMAS = [tema for temas in TEMAS_POR_LIVRO.values() for tema in temas]
-
-# ---------- PERSISTÊNCIA VIA URL (bilhete/ticket) ----------
-if "meu_id" not in st.session_state and "ticket" in st.query_params:
-    st.session_state["meu_id"] = st.query_params["ticket"]
 
 # ---------- TELA DE CHECK-IN ----------
 
@@ -441,15 +277,17 @@ if "meu_id" not in st.session_state:
         st.title("Check-in da Fila")
         st.markdown("Preencha seus dados para entrar na fila de correção.")
 
+    # 1. Pesquisa do Aluno
     LISTA_NOMES = list(BASE_ALUNOS.keys()) + ["Outro (Não encontrei meu nome)"]
 
     nome_selecionado = st.selectbox(
         "Nome completo",
         LISTA_NOMES,
         index=None,
-        placeholder="Selecione ou digite seu nome..."
+        placeholder="Selecione ou digite seu nome...",
     )
 
+    # 2. A lógica invisível do aluno
     if nome_selecionado == "Outro (Não encontrei meu nome)":
         nome = st.text_input("Digite seu nome completo")
         contato = st.text_input("WhatsApp (apenas números com DDD)")
@@ -458,10 +296,10 @@ if "meu_id" not in st.session_state:
             [
                 "SEMI PRO", "TERÇA-TARDE", "TERÇA-NOITE", "QUARTA-PRO",
                 "QUARTA-TARDE", "QUARTA-ONLINE", "ARAPIRACA",
-                "SEXTA-MANHÃ", "SEXTA-TARDE", "CONSULTORIA"
+                "SEXTA-MANHÃ", "SEXTA-TARDE", "CONSULTORIA",
             ],
             index=None,
-            placeholder="Selecione sua turma..."
+            placeholder="Selecione sua turma...",
         )
     elif nome_selecionado is not None:
         nome = nome_selecionado
@@ -473,11 +311,12 @@ if "meu_id" not in st.session_state:
         contato = ""
         turma = ""
 
+    # 3. Campo Único de Tema para o Aluno
     tema_selecionado = st.selectbox(
         "Tema da redação",
         TODOS_TEMAS,
         index=None,
-        placeholder="Selecione o tema..."
+        placeholder="Selecione o tema...",
     )
 
     enviado = st.button("Entrar na Fila", use_container_width=True)
@@ -485,32 +324,25 @@ if "meu_id" not in st.session_state:
     if enviado:
         if not all([nome, contato, turma, tema_selecionado]):
             st.error("Preencha todos os dados antes de continuar.")
+        elif aluno_ja_na_fila(contato):
+            st.error("Você já está na fila de espera. Aguarde ser chamado.")
         else:
-            resultado = None  # "duplicado" | "erro" | novo id (str)
             try:
-                with st.spinner("Registrando seu check-in..."):
-                    if aluno_ja_na_fila(contato):
-                        resultado = "duplicado"
-                    else:
-                        livro_do_tema = next((livro for livro, temas in TEMAS_POR_LIVRO.items() if tema_selecionado in temas), "Outro")
-                        tema_final = f"{livro_do_tema} - {tema_selecionado}"
+                livro_do_tema = next(
+                    (livro for livro, temas in TEMAS_POR_LIVRO.items() if tema_selecionado in temas),
+                    "Outro",
+                )
+                tema_final = f"{livro_do_tema} - {tema_selecionado}"
 
-                        resposta = _executar(
-                            supabase.table(TABELA)
-                            .insert({"nome": nome, "contato": contato, "turma": turma, "tema": tema_final})
-                        )
-                        resultado = resposta.data[0]["id"]
-            except Exception:
-                resultado = "erro"
-
-            if resultado == "duplicado":
-                st.error("Você já está na fila de espera. Aguarde ser chamado.")
-            elif resultado == "erro":
-                st.error("Não foi possível registrar seu check-in. Tente novamente em instantes.")
-            else:
-                st.session_state["meu_id"] = resultado
-                st.query_params["ticket"] = resultado
+                resposta = (
+                    supabase.table(TABELA)
+                    .insert({"nome": nome, "contato": contato, "turma": turma, "tema": tema_final})
+                    .execute()
+                )
+                st.session_state["meu_id"] = resposta.data[0]["id"]
                 st.rerun()
+            except Exception:
+                st.error("Não foi possível registrar seu check-in. Tente novamente em instantes.")
 
 # ---------- TELA DE ACOMPANHAMENTO ----------
 
@@ -519,67 +351,24 @@ else:
         cabecalho_marca()
         st.title("Acompanhamento da Fila")
 
-    # Notificador persistente: montado UMA vez, fora do fragmento, para não ser
-    # recriado a cada atualização (era isso que quebrava o som antes).
-    render_notificador(st.session_state["meu_id"])
-
-    def liberar_novo_checkin():
-        """Botão que zera o bilhete (memória + URL) e volta ao formulário.
-        Só é exibido quando o aluno já saiu da fila (atendimento finalizado)."""
-        st.divider()
-        st.markdown('<div class="secondary-btn">', unsafe_allow_html=True)
-        if st.button("Novo check-in"):
-            del st.session_state["meu_id"]
-            if "ticket" in st.query_params:
-                del st.query_params["ticket"]
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
     @st.fragment(run_every=8)
     def painel_posicao():
-        try:
-            posicao, chamado, chamado_em = buscar_posicao_chamado(st.session_state["meu_id"])
-        except Exception:
-            st.info("Atualizando sua posição... (reconectando)")
-            return
+        posicao = buscar_posicao(st.session_state["meu_id"])
 
-        # O som/vibração é responsabilidade do notificador persistente (acima).
-        # Aqui cuidamos apenas do visual, que se atualiza a cada 8s.
         if posicao is not None:
-            if chamado:
-                st.markdown(
-                    """
-                    <div class="vez-alert">
-                        <div class="vez-title">É A SUA VEZ!</div>
-                        <div class="vez-sub">Dirija-se à mesa do corretor.</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+            st.metric(label="Sua posição atual", value=f"{posicao}º")
+            if posicao == 1:
+                st.success("Fique atento! Você é o próximo a ser chamado.")
             else:
-                st.metric(label="Sua posição atual", value=f"{posicao}º")
-                if posicao == 1:
-                    st.success("Fique atento! Você é o próximo a ser chamado.")
-                else:
-                    st.info(f"{'Há 1 pessoa' if posicao == 2 else f'Há {posicao - 1} pessoas'} na sua frente.")
-                st.caption("Aguarde ser chamado. Você poderá fazer um novo check-in assim que seu atendimento for finalizado.")
-            return
-
-        # Fora da fila: descobre o status real para exibir a mensagem correta
-        # e liberar o novo check-in.
-        try:
-            status = buscar_status(st.session_state["meu_id"])
-        except Exception:
-            st.info("Atualizando sua posição... (reconectando)")
-            return
-
-        if status == "Ausente":
-            st.warning("Você foi marcado como ausente. Se ainda desejar, faça um novo check-in.")
-        elif status is None:
-            st.info("Não encontramos seu check-in. Faça um novo check-in para entrar na fila.")
-        else:  # Concluído (ou qualquer outro estado fora da fila)
-            st.success("Atendimento concluído! Você já pode fazer um novo check-in, se precisar.")
-
-        liberar_novo_checkin()
+                st.info(f"{'Há 1 pessoa' if posicao == 2 else f'Há {posicao - 1} pessoas'} na sua frente.")
+        else:
+            st.success("Chegou a sua vez! Dirija-se à mesa do corretor.")
 
     painel_posicao()
+
+    st.divider()
+    st.markdown('<div class="secondary-btn">', unsafe_allow_html=True)
+    if st.button("Novo check-in"):
+        del st.session_state["meu_id"]
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)

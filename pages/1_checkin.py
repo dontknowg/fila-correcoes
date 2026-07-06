@@ -281,29 +281,35 @@ if "meu_id" not in st.session_state:
         placeholder="Selecione ou digite seu nome..."
     )
     
-    # 3. A lógica inteligente de autopreenchimento
+    # 3. A lógica invisível entra em ação
     if nome_selecionado == "Outro (Não encontrei meu nome)":
         nome = st.text_input("Digite seu nome completo")
-        contato = st.text_input("WhatsApp (ex: 82 99999-9999)")
+        contato = st.text_input("WhatsApp (apenas números com DDD)")
+        turma = st.selectbox(
+            "Sua turma", 
+            [
+                "SEMI PRO", "TERÇA-TARDE", "TERÇA-NOITE", "QUARTA-PRO", 
+                "QUARTA-TARDE", "QUARTA-ONLINE", "ARAPIRACA", 
+                "SEXTA-MANHÃ", "SEXTA-TARDE", "CONSULTORIA"
+            ],
+            index=None,
+            placeholder="Selecione sua turma..."
+        )
     
     elif nome_selecionado is not None:
-        # Se escolheu um nome da lista, preenche e TRANCA o campo (disabled=True)
+        # Se escolheu um nome da lista, puxa os dados do dicionário em silêncio
         nome = nome_selecionado
-        contato_sugerido = BASE_ALUNOS.get(nome, "")
-        contato = st.text_input("WhatsApp", value=contato_sugerido, disabled=True)
+        dados_aluno = BASE_ALUNOS.get(nome, {})
+        contato = dados_aluno.get("contato", "")
+        turma = dados_aluno.get("turma", "Não identificada")
         
     else:
-        # Estado inicial (nada selecionado): campo de WhatsApp fica vazio e trancado
+        # Estado inicial (nada selecionado)
         nome = ""
-        contato = st.text_input("WhatsApp", value="", disabled=True)
+        contato = ""
+        turma = ""
 
-    # 4. Turma e Tema também podem usar o index=None para forçar a escolha!
-    turma = st.selectbox(
-        "Sua turma", 
-        ["Turma Presencial Manhã", "Turma Presencial Noite"],
-        index=None,
-        placeholder="Selecione sua turma..."
-    )
+    # 4. Campo de Tema — Sempre visível
     tema = st.selectbox(
         "Tema da redação", 
         ["Eixo Temático 01: Saúde", "Eixo Temático 02: Tecnologia"],
@@ -315,9 +321,9 @@ if "meu_id" not in st.session_state:
 
     if enviado:
         if not all([nome, contato, turma, tema]):
-            st.error("Preencha todos os campos antes de continuar.")
+            st.error("Preencha todos os dados antes de continuar.")
         elif aluno_ja_na_fila(contato):
-            st.error("Este número de WhatsApp já está na fila. Aguarde ser chamado.")
+            st.error("Você já está na fila de espera. Aguarde ser chamado.")
         else:
             try:
                 resposta = (

@@ -58,21 +58,34 @@ st.markdown(
     }
     
     /* ---- Inputs ---- */
-    .stTextInput input,
+    
+    /* Regra apenas para o campo de texto digitável (WhatsApp) */
+    .stTextInput input {
+        background: var(--bt-surface) !important;
+        color: var(--bt-text) !important;
+        border: 1px solid var(--bt-border) !important;
+        border-radius: 14px !important;
+        padding: 12px 14px !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important;
+        font-size: 1rem !important;
+    }
+
+    /* Regra apenas para as caixas de seleção (Nome, Turma e Tema) */
     .stSelectbox div[data-baseweb="select"] > div {
         background: var(--bt-surface) !important;
         color: var(--bt-text) !important;
         border: 1px solid var(--bt-border) !important;
         border-radius: 14px !important;
-        padding: 12px 14px !important; /* Aumentamos o respiro interno */
-        min-height: 48px !important;   /* Garantimos uma altura mínima padrão */
         box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important;
-        font-size: 1rem !important;
+        /* Aqui não colocamos padding, deixamos o Streamlit calcular o respiro perfeito! */
     }
-    .stTextInput input:focus {
+
+    /* Efeitos de brilho ao clicar */
+    .stTextInput input:focus, .stSelectbox div[data-baseweb="select"] > div:focus-within {
         border-color: var(--bt-accent) !important;
         box-shadow: 0 0 0 3px rgba(176,38,255,0.25) !important;
     }
+    
     .stTextInput input::placeholder { color: #6b6b6b; }
 
     /* dropdown popover */

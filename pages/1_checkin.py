@@ -294,8 +294,26 @@ def buscar_posicao(id_aluno: str) -> int | None:
     return None
 
 
+def buscar_status(id_aluno: str) -> str | None:
+    """Retorna o status atual do aluno no banco (Aguardando/Concluído/Ausente)
+    ou None se o registro não existir mais."""
+    resultado = _executar(
+        supabase.table(TABELA).select("status").eq("id", id_aluno)
+    )
+    if not resultado.data:
+        return None
+    return resultado.data[0]["status"]
+
+
 # ---------- PREPARAÇÃO DOS TEMAS ----------
 TODOS_TEMAS = [tema for temas in TEMAS_POR_LIVRO.values() for tema in temas]
+
+# ---------- PERSISTÊNCIA VIA URL (bilhete/ticket) ----------
+# Se o celular recarregar a página (Safari matando a aba por memória), a
+# st.session_state é apagada. Recuperamos o ID do aluno a partir da URL
+# (?ticket=<id>), devolvendo-o direto à tela de acompanhamento.
+if "meu_id" not in st.session_state and "ticket" in st.query_params:
+    st.session_state["meu_id"] = st.query_params["ticket"]
 
 # ---------- TELA DE CHECK-IN ----------
 
@@ -377,6 +395,8 @@ if "meu_id" not in st.session_state:
                 st.error("Não foi possível registrar seu check-in. Tente novamente em instantes.")
             else:
                 st.session_state["meu_id"] = resultado
+                # Grava o bilhete na URL para sobreviver a recarregamentos
+                st.query_params["ticket"] = resultado
                 st.rerun()
 
 # ---------- TELA DE ACOMPANHAMENTO ----------
@@ -386,6 +406,18 @@ else:
         cabecalho_marca()
         st.title("Acompanhamento da Fila")
 
+    def liberar_novo_checkin():
+        """Botão que zera o bilhete (memória + URL) e volta ao formulário.
+        Só é exibido quando o aluno já saiu da fila (atendimento finalizado)."""
+        st.divider()
+        st.markdown('<div class="secondary-btn">', unsafe_allow_html=True)
+        if st.button("Novo check-in"):
+            del st.session_state["meu_id"]
+            if "ticket" in st.query_params:
+                del st.query_params["ticket"]
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
     @st.fragment(run_every=8)
     def painel_posicao():
         try:
@@ -394,20 +426,32 @@ else:
             st.info("Atualizando sua posição... (reconectando)")
             return
 
+        # Ainda na fila: mostra a posição. O botão de novo check-in NÃO aparece —
+        # o aluno só pode reentrar depois que o atendimento dele for finalizado.
         if posicao is not None:
             st.metric(label="Sua posição atual", value=f"{posicao}º")
             if posicao == 1:
                 st.success("Fique atento! Você é o próximo a ser chamado.")
             else:
                 st.info(f"{'Há 1 pessoa' if posicao == 2 else f'Há {posicao - 1} pessoas'} na sua frente.")
-        else:
-            st.success("Chegou a sua vez! Dirija-se à mesa do corretor.")
+            st.caption("Aguarde ser chamado. Você poderá fazer um novo check-in assim que seu atendimento for finalizado.")
+            return
+
+        # Fora da fila: descobre o status real para exibir a mensagem correta
+        # e liberar o novo check-in.
+        try:
+            status = buscar_status(st.session_state["meu_id"])
+        except Exception:
+            st.info("Atualizando sua posição... (reconectando)")
+            return
+
+        if status == "Ausente":
+            st.warning("Você foi marcado como ausente. Se ainda desejar, faça um novo check-in.")
+        elif status is None:
+            st.info("Não encontramos seu check-in. Faça um novo check-in para entrar na fila.")
+        else:  # Concluído (ou qualquer outro estado fora da fila)
+            st.success("Atendimento concluído! Você já pode fazer um novo check-in, se precisar.")
+
+        liberar_novo_checkin()
 
     painel_posicao()
-
-    st.divider()
-    st.markdown('<div class="secondary-btn">', unsafe_allow_html=True)
-    if st.button("Novo check-in"):
-        del st.session_state["meu_id"]
-        st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)

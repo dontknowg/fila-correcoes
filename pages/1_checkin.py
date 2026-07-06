@@ -266,7 +266,8 @@ def buscar_posicao(id_aluno: str) -> int | None:
 
 
 # ---------- PREPARAÇÃO DOS TEMAS ----------
-TODOS_TEMAS = [tema for temas in TEMAS_POR_LIVRO.values() for_tema in temas]
+# Correção do erro de digitação: "for tema" no lugar de "for_tema"
+TODOS_TEMAS = [tema for temas in TEMAS_POR_LIVRO.values() for tema in temas]
 
 # ---------- TELA DE CHECK-IN ----------
 

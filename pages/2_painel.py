@@ -6,6 +6,20 @@ from datetime import datetime, date
 
 st.set_page_config(page_title="Painel | Projeto de Correções", layout="wide")
 
+    st.markdown(
+        """
+        <style>
+        /* Esconde o menu/rodapé padrão do Streamlit */
+        #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; }
+
+        /* Trava de Segurança: Oculta completamente a barra lateral e o botão de colapso */
+        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="collapsedControl"] { display: none !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 TABELA = "fila"
 
 

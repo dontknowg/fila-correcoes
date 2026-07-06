@@ -18,9 +18,7 @@ st.markdown(
         font-size: 16px !important;
     }
 
-    /* No celular, o Streamlit já empilha as colunas em largura total (bom
-       para os botões de ação, com alvos de toque grandes). Aqui deixamos
-       apenas os 4 indicadores em 2x2, para um painel compacto de dashboard. */
+    /* No celular: os 4 indicadores viram 2x2 (dashboard compacto) */
     @media (max-width: 640px) {
         [data-testid="stColumn"]:has([data-testid="stMetric"]) {
             flex: 1 1 46% !important;
@@ -35,8 +33,6 @@ st.markdown(
     }
     .login-wrap h1 { font-size: 2rem; margin-bottom: 0.2rem; }
     .login-wrap p { color: #9a9a9a; margin-bottom: 0; }
-    /* O único formulário do painel é o de login: limita a largura e centraliza.
-       No celular (viewport < 420px) ele ocupa a largura toda automaticamente. */
     [data-testid="stForm"] {
         max-width: 420px;
         margin: 0 auto;
@@ -86,11 +82,26 @@ def carregar_dados(filtro_status=None) -> pd.DataFrame:
 
 
 def atualizar_status(id_aluno: str, novo_status: str) -> bool:
+    payload = {"status": novo_status}
+    # Ao voltar para a fila (desfazer), zera o "chamado" para não reabrir
+    # o alerta antigo de "é a sua vez" na tela do aluno.
+    if novo_status == "Aguardando":
+        payload["chamado"] = False
     try:
-        _executar(supabase.table(TABELA).update({"status": novo_status}).eq("id", id_aluno))
+        _executar(supabase.table(TABELA).update(payload).eq("id", id_aluno))
         return True
     except Exception:
         st.toast("Falha ao atualizar. Tente novamente.", icon="⚠️")
+        return False
+
+
+def chamar_aluno(id_aluno: str) -> bool:
+    """Marca o aluno como chamado — a tela dele exibirá 'É A SUA VEZ'."""
+    try:
+        _executar(supabase.table(TABELA).update({"chamado": True}).eq("id", id_aluno))
+        return True
+    except Exception:
+        st.toast("Falha ao chamar. Tente novamente.", icon="⚠️")
         return False
 
 
@@ -176,13 +187,20 @@ with aba_fila:
         st.divider()
 
         proximo = fila_espera.iloc[0]
+        ja_chamado = bool(proximo.get("chamado", False))
 
-        st.subheader(f"Chamando: {proximo['nome']}")
+        st.subheader(f"Próximo: {proximo['nome']}")
         st.caption(f"{proximo['turma']}  |  {proximo['tema']}  |  {proximo['contato']}")
+        if ja_chamado:
+            st.success("Aluno chamado — aguardando ele chegar à mesa.")
 
-        col_concluir, col_ausente = st.columns(2)
+        col_chamar, col_concluir, col_ausente = st.columns(3)
+        with col_chamar:
+            if st.button("Chamar Aluno", use_container_width=True, type="primary", disabled=ja_chamado):
+                if chamar_aluno(proximo["id"]):
+                    st.rerun()
         with col_concluir:
-            if st.button("Concluir Atendimento", use_container_width=True, type="primary"):
+            if st.button("Concluir Atendimento", use_container_width=True):
                 if atualizar_status(proximo["id"], "Concluído"):
                     st.rerun()
         with col_ausente:

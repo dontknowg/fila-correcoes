@@ -216,8 +216,7 @@ def cabecalho_marca():
         <div class="bt-brand">
             <img src="{url_logo}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 14px rgba(255,255,255,0.15);">
             <div>
-                <div class="bt-brandname">BATINGA</div>
-                <div class="bt-brandsub">PROJETO DE CORREÇÕES</div>
+                <div class="bt-brandname">PROJETO DE CORREÇÕES</div>
             </div>
         </div>
         """,

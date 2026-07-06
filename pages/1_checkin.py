@@ -211,13 +211,16 @@ st.markdown(
 
 # ---------- BLOCO DE MARCA (reutilizável) ----------
 
+LOGO_URL = st.secrets.get(
+    "LOGO_URL",
+    "https://gfaffmlrhubbwcyxaewl.supabase.co/storage/v1/object/public/assets/logo_400px.png",
+)
+
 def cabecalho_marca():
-    url_logo = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" 
-    
     st.markdown(
         f"""
         <div class="bt-brand">
-            <img src="{url_logo}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 14px rgba(255,255,255,0.15);">
+            <img src="{LOGO_URL}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 14px rgba(255,255,255,0.15);">
             <div>
                 <div class="bt-brandname">PROJETO DE CORREÇÕES</div>
             </div>

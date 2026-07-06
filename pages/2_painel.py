@@ -81,7 +81,7 @@ def carregar_dados(filtro_status=None) -> pd.DataFrame:
         query = query.eq("status", filtro_status).order("data_hora", desc=False)
     else:
         query = query.order("data_hora", desc=True)
-        
+
     response = _executar(query)
     if response.data:
         return pd.DataFrame(response.data)
@@ -200,11 +200,11 @@ with aba_fila:
             st.caption("Selecione os valores. A soma é automática.")
 
             c_cols = st.columns(5)
-            with c_cols[0]: n1 = st.selectbox("C1", OPCOES_NOTA, index=None)
-            with c_cols[1]: n2 = st.selectbox("C2", OPCOES_NOTA, index=None)
-            with c_cols[2]: n3 = st.selectbox("C3", OPCOES_NOTA, index=None)
-            with c_cols[3]: n4 = st.selectbox("C4", OPCOES_NOTA, index=None)
-            with c_cols[4]: n5 = st.selectbox("C5", OPCOES_NOTA, index=None)
+            with c_cols[0]: n1 = st.selectbox("C1", OPCOES_NOTA, index=None, placeholder="Nota")
+            with c_cols[1]: n2 = st.selectbox("C2", OPCOES_NOTA, index=None, placeholder="Nota")
+            with c_cols[2]: n3 = st.selectbox("C3", OPCOES_NOTA, index=None, placeholder="Nota")
+            with c_cols[3]: n4 = st.selectbox("C4", OPCOES_NOTA, index=None, placeholder="Nota")
+            with c_cols[4]: n5 = st.selectbox("C5", OPCOES_NOTA, index=None, placeholder="Nota")
 
             v1 = n1 if n1 is not None else 0
             v2 = n2 if n2 is not None else 0
@@ -216,7 +216,7 @@ with aba_fila:
 
             st.metric("Nota Total Mapeada", f"{nota_total} / 1000")
             st.markdown("<br>", unsafe_allow_html=True)
-            
+
             col_salvar, col_cancelar = st.columns(2)
             with col_salvar:
                 if st.button("Salvar e Concluir Atendimento", type="primary", use_container_width=True):
@@ -238,9 +238,9 @@ with aba_fila:
                             st.rerun()
                         except Exception:
                             st.error("Erro de conexão ao salvar. Tente novamente.")
-            
+
             with col_cancelar:
-                if st.button("Cancelar Evaluation", use_container_width=True):
+                if st.button("Cancelar Avaliação", use_container_width=True):
                     del st.session_state["avaliar_id"]
                     del st.session_state["avaliar_nome"]
                     st.rerun()
@@ -277,17 +277,17 @@ with aba_fila:
                         st.caption(f"{aluno['turma']}  |  {aluno['tema']}  |  {aluno['contato']}")
                     with col_acoes:
                         b_chamar, b_concluir, b_pular = st.columns(3)
-                        
+
                         rotulo_chamar = "Chamar de novo" if chamado else "Chamar"
                         if b_chamar.button(rotulo_chamar, key=f"chamar_{aid}", type="primary", use_container_width=True):
                             if chamar_aluno(aid):
                                 st.rerun()
-                                
+
                         if b_concluir.button("Concluir", key=f"concluir_{aid}", use_container_width=True):
                             st.session_state["avaliar_id"] = aid
                             st.session_state["avaliar_nome"] = aluno['nome']
                             st.rerun()
-                            
+
                         if b_pular.button("Pular", key=f"pular_{aid}", use_container_width=True):
                             if pular_aluno(aid):
                                 st.rerun()
@@ -315,7 +315,9 @@ with aba_fila:
             for _, row in recentes.iterrows():
                 col_info, col_acao = st.columns([4, 1])
                 with col_info:
-                    st.markdown(f"**{row['nome']}** — Nota: {row.get('nota', 'N/A')} _(Corretor: {row.get('corretor', 'N/A')})_")
+                    nota_txt = f"{int(row['nota'])}" if pd.notna(row.get("nota")) else "—"
+                    corretor_txt = row["corretor"] if row.get("corretor") else "—"
+                    st.markdown(f"**{row['nome']}** — Nota: {nota_txt} _(Corretor: {corretor_txt})_")
                 with col_acao:
                     if st.button("Desfazer", key=f"desfazer_{row['id']}", use_container_width=True):
                         if desfazer_conclusao(row["id"]):
@@ -365,6 +367,8 @@ with aba_dados:
             column_config={
                 "id": None,
                 "ordem_em": None,
+                "chamado": None,
+                "chamado_em": None,
                 "data_hora": st.column_config.DatetimeColumn("Chegada", format="DD/MM/YYYY HH:mm"),
                 "nome": "Nome",
                 "contato": "WhatsApp",
@@ -383,7 +387,10 @@ with aba_dados:
             use_container_width=True,
         )
 
-        csv = dados_filtrados.to_csv(index=False).encode("utf-8")
+        # Remove colunas internas (mecânica da fila) do arquivo de análise
+        internas = ["id", "chamado", "chamado_em", "ordem_em"]
+        colunas_export = [c for c in dados_filtrados.columns if c not in internas]
+        csv = dados_filtrados[colunas_export].to_csv(index=False).encode("utf-8")
         st.download_button(
             "Exportar CSV",
             data=csv,

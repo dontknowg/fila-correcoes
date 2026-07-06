@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 st.set_page_config(page_title="Painel | Projeto de Correções", layout="wide")
 
@@ -83,10 +83,11 @@ def carregar_dados(filtro_status=None) -> pd.DataFrame:
 
 def atualizar_status(id_aluno: str, novo_status: str) -> bool:
     payload = {"status": novo_status}
-    # Ao voltar para a fila (desfazer), zera o "chamado" para não reabrir
+    # Ao voltar para a fila (desfazer), zera o chamado para não reabrir
     # o alerta antigo de "é a sua vez" na tela do aluno.
     if novo_status == "Aguardando":
         payload["chamado"] = False
+        payload["chamado_em"] = None
     try:
         _executar(supabase.table(TABELA).update(payload).eq("id", id_aluno))
         return True
@@ -96,9 +97,15 @@ def atualizar_status(id_aluno: str, novo_status: str) -> bool:
 
 
 def chamar_aluno(id_aluno: str) -> bool:
-    """Marca o aluno como chamado — a tela dele exibirá 'É A SUA VEZ'."""
+    """Chama (ou chama novamente) o aluno. Atualiza o horário do chamado —
+    é essa mudança que faz a tela do aluno disparar o alerta e o som de novo."""
     try:
-        _executar(supabase.table(TABELA).update({"chamado": True}).eq("id", id_aluno))
+        _executar(
+            supabase.table(TABELA).update({
+                "chamado": True,
+                "chamado_em": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", id_aluno)
+        )
         return True
     except Exception:
         st.toast("Falha ao chamar. Tente novamente.", icon="⚠️")
@@ -189,8 +196,9 @@ with aba_fila:
                     st.caption(f"{aluno['turma']}  |  {aluno['tema']}  |  {aluno['contato']}")
                 with col_acoes:
                     b_chamar, b_concluir, b_ausente = st.columns(3)
-                    if b_chamar.button("Chamar", key=f"chamar_{aid}", type="primary",
-                                       disabled=chamado, use_container_width=True):
+                    rotulo_chamar = "Chamar de novo" if chamado else "Chamar"
+                    if b_chamar.button(rotulo_chamar, key=f"chamar_{aid}", type="primary",
+                                       use_container_width=True):
                         if chamar_aluno(aid):
                             st.rerun()
                     if b_concluir.button("Concluir", key=f"concluir_{aid}", use_container_width=True):

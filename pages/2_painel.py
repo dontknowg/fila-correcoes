@@ -89,14 +89,51 @@ def carregar_dados(filtro_status=None) -> pd.DataFrame:
     return pd.DataFrame(columns=COLUNAS)
 
 
-def chamar_aluno(id_aluno: str) -> bool:
+def chamar_aluno(id_aluno: str, nome_aluno: str, contato_aluno: str) -> bool:
     try:
+        # 1. Atualiza no Supabase (faz o painel reagir)
         _executar(
             supabase.table(TABELA).update({
                 "chamado": True,
                 "chamado_em": datetime.now(timezone.utc).isoformat(),
             }).eq("id", id_aluno)
         )
+        
+        # 2. Dispara a notificação via WhatsApp (MegaAPI Start)
+        try:
+            host = st.secrets["whatsapp"]["host"]
+            instance_key = st.secrets["whatsapp"]["instance_key"]
+            token = st.secrets["whatsapp"]["token"]
+            
+            # URL de Endpoint ajustada para a estrutura rest da MegaAPI Start
+            url_api = f"https://{host}/rest/sendMessage/{instance_key}/text"
+            
+            # Limpa o número e garante o 55 do Brasil
+            telefone_limpo = ''.join(filter(str.isdigit, str(contato_aluno)))
+            if telefone_limpo and not telefone_limpo.startswith("55"):
+                telefone_limpo = f"55{telefone_limpo}"
+                
+            mensagem = f"Olá, *{nome_aluno}*! Chegou a sua vez nas correções. Dirija-se à mesa."
+            
+            # Estrutura do payload exigida pela documentação Start (@s.whatsapp.net)
+            payload = {
+                "messageData": {
+                    "to": f"{telefone_limpo}@s.whatsapp.net",
+                    "text": mensagem
+                }
+            }
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Executa o disparo com tempo limite de 5 segundos
+            resposta = requests.post(url_api, json=payload, headers=headers, timeout=5)
+            resposta.raise_for_status()
+            
+        except Exception as erro_whatsapp:
+            print(f"Erro ao enviar WhatsApp: {erro_whatsapp}")
+            
         return True
     except Exception:
         st.toast("Falha ao chamar. Tente novamente.", icon="⚠️")
@@ -280,8 +317,10 @@ with aba_fila:
                         b_chamar, b_concluir, b_pular = st.columns(3)
 
                         rotulo_chamar = "Chamar de novo" if chamado else "Chamar"
+                        
+                        # Botão ajustado para passar os parâmetros de contato do aluno
                         if b_chamar.button(rotulo_chamar, key=f"chamar_{aid}", type="primary", use_container_width=True):
-                            if chamar_aluno(aid):
+                            if chamar_aluno(aid, aluno['nome'], aluno['contato']):
                                 st.rerun()
 
                         if b_concluir.button("Concluir", key=f"concluir_{aid}", use_container_width=True):

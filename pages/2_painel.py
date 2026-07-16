@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 from datetime import datetime, date, timezone
+import requests
 
 # Importando a lista oficial de corretores de forma limpa
 from corretores import LISTA_CORRETORES
